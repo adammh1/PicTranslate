@@ -49,3 +49,4 @@ firebase1.json
 
 backend.zip
 lib.zip
+lib/firebase_options.dart
