@@ -37,8 +37,13 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 /backend/node_modules
+/backend/huggingface_cache
+/backend/pictranslate-firebase-adminsdk-.json
+/backend/uploads
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
 backend/pictranslate-d4da7-firebase-adminsdk-54fhy-cc89068b3a.json
+firebase1.json
+
