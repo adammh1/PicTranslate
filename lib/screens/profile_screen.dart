@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:pictranslate/screens/login_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -137,10 +139,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _logout() async {
+Future<void> _logout() async {
+  try {
     await _auth.signOut();
-    Navigator.pushReplacementNamed(context, '/login'); // Redirect to login page
+
+    if (!mounted) return;
+
+    await Future.delayed(const Duration(milliseconds: 300));  
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
+  } catch (e) {
+    _showError('Logout failed: $e');
   }
+}
+
+
 
   Future<void> _uploadProfilePhoto() async {
     if (_imageFile == null) return;
@@ -157,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _imageFile!.path,
       ));
       final response = await request.send();
-
+ 
       if (response.statusCode == 200) {
         final responseBody = await response.stream.bytesToString();
         final data = jsonDecode(responseBody);
@@ -254,7 +270,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Preferred Language Dropdown
                   DropdownButtonFormField<String>(
                     value: _selectedLanguage,
                     decoration: const InputDecoration(
@@ -273,7 +288,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Email Input (only show the part before the '@')
                   TextField(
                     controller: _emailController,
                     decoration: InputDecoration(
@@ -282,7 +296,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       border: const OutlineInputBorder(),
                     ),
                   ),
-// Replace the existing code that has individual buttons with this:
     ElevatedButton(
       onPressed: () async {
         await showDialog(
@@ -317,30 +330,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             actions: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, // Adjust button spacing
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, 
                 children: [
                   TextButton(
                     onPressed: () {
-                      Navigator.pop(context); // Close dialog on cancel
+                      Navigator.pop(context); 
                     },
                     child: const Text('Cancel'),
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                      // Check if new password and retype match
                       if (_newPassword != _confirmPassword) {
-                        Navigator.pop(context); // Close dialog
+                        Navigator.pop(context); 
                         _showError('New password and confirm password do not match');
                         return;
                       }
                       
-                      // Check if old password is correct
                       try {
                         await _updatePassword();
-                        Navigator.pop(context); // Close dialog after successful password change
+                        Navigator.pop(context); 
                         _showMessage('Password changed successfully!');
                       } catch (e) {
-                        Navigator.pop(context); // Close dialog if error occurs
+                        Navigator.pop(context); 
                         _showError(e.toString());
                       }
                     },
@@ -357,12 +368,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     ElevatedButton(
       onPressed: () {
-        _updateEmail(_emailController.text); // Update email
+        _updateEmail(_emailController.text); 
       },
       child: const Text('Update Email'),
     ),
 ElevatedButton(
-      onPressed: _updateUserData, // Save profile
+      onPressed: _updateUserData, 
       child: const Text('Save Profile'),
     ),
   ],

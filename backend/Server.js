@@ -1,33 +1,31 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const multer = require('multer');
-const cors = require('cors');
-const path = require('path');
-const admin = require('firebase-admin');
+const express = require("express");
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
+const multer = require("multer");
+const cors = require("cors");
+const path = require("path");
+const admin = require("firebase-admin");
+const fs = require("fs").promises; 
+const { spawn } = require("child_process");
 
-// Initialize Firebase Admin SDK
-const serviceAccount = require('./pictranslate-d4da7-firebase-adminsdk-54fhy-cc89068b3a.json'); // Update path
+const serviceAccount = require("./pictranslate-firebase-adminsdk-.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// App setup
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// MongoDB connection
-mongoose.connect('mongodb://localhost:27028/flutter_mongo', {
+mongoose.connect("mongodb://localhost:27028/flutter_mongo", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
 const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'Connection error:'));
-db.once('open', () => console.log('Connected to MongoDB'));
+db.on("error", console.error.bind(console, "Connection error:"));
+db.once("open", () => console.log("Connected to MongoDB"));
 
-// Define User Schema
 const userSchema = new mongoose.Schema({
   uid: { type: String, required: true, unique: true },
   name: { type: String },
@@ -36,44 +34,39 @@ const userSchema = new mongoose.Schema({
   profilePhotoUrl: { type: String },
 });
 
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model("User", userSchema);
 
-// Multer setup for file uploads
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: "uploads/" });
 
-// Middleware to verify Firebase token
 async function verifyToken(req, res, next) {
-  const token = req.headers['authorization']?.split('Bearer ')[1];
-  if (!token) return res.status(401).send('Token required');
+  const token = req.headers["authorization"]?.split("Bearer ")[1];
+  if (!token) return res.status(401).send("Token required");
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
-    req.uid = decodedToken.uid; // Attach UID to request
+    req.uid = decodedToken.uid;
     next();
   } catch (error) {
-    res.status(401).send('Unauthorized');
+    res.status(401).send("Unauthorized");
   }
 }
 
-// API Endpoints
 
-// Get user data
-app.get('/api/users/:uid', verifyToken, async (req, res) => {
+app.get("/api/users/:uid", verifyToken, async (req, res) => {
   try {
-    if (req.uid !== req.params.uid) return res.status(403).send('Forbidden');
+    if (req.uid !== req.params.uid) return res.status(403).send("Forbidden");
 
     const user = await User.findOne({ uid: req.params.uid });
-    if (!user) return res.status(404).send('User not found');
+    if (!user) return res.status(404).send("User not found");
     res.json(user);
   } catch (error) {
-    res.status(500).send('Error retrieving user: ' + error.message);
+    res.status(500).send("Error retrieving user: " + error.message);
   }
 });
 
-// Update user data
-app.put('/api/users/:uid', verifyToken, async (req, res) => {
+app.put("/api/users/:uid", verifyToken, async (req, res) => {
   try {
-    if (req.uid !== req.params.uid) return res.status(403).send('Forbidden');
+    if (req.uid !== req.params.uid) return res.status(403).send("Forbidden");
 
     const { name, preferredLanguage, profilePhotoUrl } = req.body;
     const updatedUser = await User.findOneAndUpdate(
@@ -83,69 +76,61 @@ app.put('/api/users/:uid', verifyToken, async (req, res) => {
     );
     res.json(updatedUser);
   } catch (error) {
-    res.status(500).send('Error updating user: ' + error.message);
+    res.status(500).send("Error updating user: " + error.message);
   }
 });
 
-// Upload profile photo
-app.post('/api/users/:uid/upload', verifyToken, upload.single('profilePhoto'), async (req, res) => {
+app.post("/api/translate", upload.single("image"), async (req, res) => {
   try {
-    if (req.uid !== req.params.uid) return res.status(403).send('Forbidden');
+    const { sourceLanguage, targetLanguage } = req.body;
+    const file = req.file;
 
-    const photoUrl = `http://localhost:3000/uploads/${req.file.filename}`;
+    if (!file || !sourceLanguage || !targetLanguage) {
+      return res.status(400).json({
+        error: "Missing required parameters (image, sourceLanguage, targetLanguage)",
+      });
+    }
 
-    await User.findOneAndUpdate(
-      { uid: req.params.uid },
-      { profilePhotoUrl: photoUrl },
-      { new: true, upsert: true }
-    );
+    const pythonProcess = spawn("python", [
+      "./translate.py",
+      file.path,
+      sourceLanguage,
+      targetLanguage,
+    ]);
 
-    res.json({ profilePhotoUrl: photoUrl });
+    let result = "";
+    let error = "";
+
+pythonProcess.stdout.on("data", (data) => {
+  result += data.toString();
+});
+
+pythonProcess.stderr.on("data", (data) => {
+  console.error(data.toString());
+});
+
+
+    pythonProcess.on("close", async (code) => {
+      await fs.unlink(file.path).catch(console.error);
+
+      if (code === 0 && result.trim()) {
+        res.json({ translatedText: result.trim() });
+      } else {
+        res.status(500).json({
+          error: error || "Error during translation process",
+        });
+      }
+    });
   } catch (error) {
-    res.status(500).send('Error uploading photo: ' + error.message);
+    console.error(error);
+    if (req.file) {
+      await fs.unlink(req.file.path).catch(console.error);
+    }
+    res.status(500).json({ error: "Failed to process the image" });
   }
 });
 
-// Request email verification
-app.post('/api/users/:uid/email/verify', verifyToken, async (req, res) => {
-  try {
-    if (req.uid !== req.params.uid) return res.status(403).send('Forbidden');
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-    const user = await admin.auth().getUser(req.uid);
-    await admin.auth().generateEmailVerificationLink(user.email);
-
-    res.json({ message: 'Verification email sent successfully' });
-  } catch (error) {
-    res.status(500).send('Error sending verification email: ' + error.message);
-  }
-});
-
-// Update email
-app.put('/api/users/:uid/email', verifyToken, async (req, res) => {
-  try {
-    if (req.uid !== req.params.uid) return res.status(403).send('Forbidden');
-
-    const { newEmail } = req.body;
-    if (!newEmail) return res.status(400).send('New email is required');
-
-    const userRecord = await admin.auth().updateUser(req.uid, { email: newEmail });
-
-    // Update in MongoDB
-    await User.findOneAndUpdate(
-      { uid: req.params.uid },
-      { email: userRecord.email },
-      { new: true }
-    );
-
-    res.json({ message: 'Email updated successfully' });
-  } catch (error) {
-    res.status(500).send('Error updating email: ' + error.message);
-  }
-});
-
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

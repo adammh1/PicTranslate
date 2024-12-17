@@ -5,6 +5,7 @@ import 'package:pictranslate/screens/home_screen.dart';
 import 'package:pictranslate/screens/onboarding_screen.dart';
 import 'package:pictranslate/screens/login_or_register.dart';
 import 'package:pictranslate/screens/profile_screen.dart';
+import 'package:pictranslate/screens/translate_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,13 +21,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      initialRoute: '/onboarding', // Start with the onboarding page
+      initialRoute: '/onboarding', 
       routes: {
         '/onboarding': (context) => const OnboardingScreen(),
         '/home': (context) =>  const HomeScreen(),
         '/auth': (context) => const LoginOrRegister(),
         '/profile':(context) =>  const ProfileScreen(),
-        '/login' : (context) => const LoginScreen()
+        '/login' : (context) => const LoginScreen(),
+        '/translate': (context)=>  const TranslateScreen()
       },
     );
   }
