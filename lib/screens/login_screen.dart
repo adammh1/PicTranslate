@@ -16,66 +16,73 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  final resetEmailController = TextEditingController(); 
+  final resetEmailController = TextEditingController();
+  bool _isLoading = false;
+  void signInUser() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
- void signInUser() async {
-  try {
-    UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: emailController.text.trim(),
-      password: passwordController.text.trim(),
-    );
+      User? user = userCredential.user;
 
-    User? user = userCredential.user;
+      if (user != null && !user.emailVerified) {
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text("Email Not Verified"),
+              content:
+                  const Text("Please verify your email before logging in."),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    FirebaseAuth.instance.signOut();
+                  },
+                  child: const Text("OK"),
+                ),
+              ],
+            );
+          },
+        );
+        return;
+      }
 
-    if (user != null && !user.emailVerified) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = 'An error occurred. Please try again.';
+      if (e.code == 'user-not-found') {
+        errorMessage = 'No user found for that email.';
+      } else if (e.code == 'wrong-password') {
+        errorMessage = 'Wrong password provided.';
+      }
       showDialog(
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: const Text("Email Not Verified"),
-            content: const Text("Please verify your email before logging in."),
+            title: const Text("Login Failed"),
+            content: Text(errorMessage),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  FirebaseAuth.instance.signOut(); 
-                },
+                onPressed: () => Navigator.pop(context),
                 child: const Text("OK"),
               ),
             ],
           );
         },
       );
-      return;
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    Navigator.pushReplacementNamed(context, '/home');
-  } on FirebaseAuthException catch (e) {
-    String errorMessage = 'An error occurred. Please try again.';
-    if (e.code == 'user-not-found') {
-      errorMessage = 'No user found for that email.';
-    } else if (e.code == 'wrong-password') {
-      errorMessage = 'Wrong password provided.';
-    }
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Login Failed"),
-          content: Text(errorMessage),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
-        );
-      },
-    );
   }
-}
-
-
 
   Future<void> resetPassword() async {
     showDialog(
@@ -99,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context), 
+                  onPressed: () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -107,7 +114,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     final email = resetEmailController.text.trim();
                     if (email.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter a valid email.')),
+                        const SnackBar(
+                            content: Text('Please enter a valid email.')),
                       );
                       return;
                     }
@@ -134,13 +142,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       );
                     } on FirebaseAuthException catch (e) {
-                      Navigator.pop(context); 
+                      Navigator.pop(context);
                       showDialog(
                         context: context,
                         builder: (context) {
                           return AlertDialog(
                             title: const Text("Error"),
-                            content: Text(e.message ?? "An error occurred while trying to reset your password."),
+                            content: Text(e.message ??
+                                "An error occurred while trying to reset your password."),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context),
@@ -182,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 25),
                 Textfields(
                   controller: emailController,
-                  hintText: 'email',
+                  hintText: 'Email',
                   obscureText: false,
                 ),
                 const SizedBox(height: 10),
@@ -198,20 +207,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       GestureDetector(
-                        onTap: resetPassword, 
+                        onTap: resetPassword,
                         child: const Text(
                           'Forget Password?',
-                          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: Colors.blue, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 25),
-                Buttons(
-                  onTap: signInUser,
-                  text: "Sign In",
-                ),
+                _isLoading
+                    ? const CircularProgressIndicator()
+                    : Buttons(
+                        onTap: signInUser,
+                        text: "Sign In",
+                      ),
                 const SizedBox(
                   height: 50,
                 ),
@@ -245,9 +257,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Square(path: "assets/Icons/google.png", onTap: () => AuthService().signInWithGoogle()),
+                    Square(
+                        path: "assets/Icons/google.png",
+                        onTap: () => AuthService().signInWithGoogle()),
                     const SizedBox(width: 25),
-                    Square(path: "assets/Icons/facebook.png", onTap: () => AuthService().signInWithFacebook()),
+                    Square(
+                        path: "assets/Icons/facebook.png",
+                        onTap: () => AuthService().signInWithFacebook()),
                   ],
                 ),
                 const SizedBox(
@@ -261,8 +277,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(
                       width: 4,
                     ),
-                      GestureDetector(
-                      onTap: widget.onTap,
+                    GestureDetector(
+                        onTap: widget.onTap,
                         child: const Text(
                           "Register now",
                           style: TextStyle(

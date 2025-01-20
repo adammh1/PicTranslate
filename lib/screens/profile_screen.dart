@@ -23,7 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _profilePhotoUrl;
   String _selectedLanguage = "English";
   bool _isLoading = false;
-  bool _isPasswordChanging = false;
+  bool _isPasswordChanging=false;
   String _oldPassword = '';
   String _newPassword = '';
   String _confirmPassword = '';
@@ -31,7 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _languages = ["English", "French", "Spanish", "Arabic"];
+  final List<String> _languages = ["English", "French", "Spanish", "Arabic", "German", "Chinese", "Russian","Japanese","Portuguese","Italian"];
 
   @override
   void initState() {
@@ -82,7 +82,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: jsonEncode({
           'name': _nameController.text,
           'preferredLanguage': _selectedLanguage,
-          'profilePhotoUrl': _profilePhotoUrl,
         }),
       );
 
@@ -139,24 +138,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-Future<void> _logout() async {
-  try {
-    await _auth.signOut();
+  Future<void> _logout() async {
+    try {
+      await _auth.signOut();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    await Future.delayed(const Duration(milliseconds: 300));  
+      await Future.delayed(const Duration(milliseconds: 300));
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
-  } catch (e) {
-    _showError('Logout failed: $e');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    } catch (e) {
+      _showError('Logout failed: $e');
+    }
   }
-}
-
-
 
   Future<void> _uploadProfilePhoto() async {
     if (_imageFile == null) return;
@@ -165,15 +162,15 @@ Future<void> _logout() async {
       final token = await _currentUser!.getIdToken();
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://10.0.2.2:3000/api/users/${_currentUser!.uid}/upload'),
+        Uri.parse('http://10.0.2.2:3000/api/users/${_currentUser!.uid}'),
       );
       request.headers['Authorization'] = 'Bearer $token';
       request.files.add(await http.MultipartFile.fromPath(
         'profilePhoto',
         _imageFile!.path,
       ));
+
       final response = await request.send();
- 
       if (response.statusCode == 200) {
         final responseBody = await response.stream.bytesToString();
         final data = jsonDecode(responseBody);
@@ -189,6 +186,7 @@ Future<void> _logout() async {
     } finally {
       setState(() => _isLoading = false);
     }
+    print("Profile Photo URL: $_profilePhotoUrl");
   }
 
   Future<void> _pickImage() async {
@@ -222,10 +220,16 @@ Future<void> _logout() async {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.black.withOpacity(0.8),
-        title: const Text('Profile',style: TextStyle(color: Colors.white,)),
+        title: const Text('Profile',
+            style: TextStyle(
+              color: Colors.white,
+            )),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout,color: Colors.white,),
+            icon: const Icon(
+              Icons.logout,
+              color: Colors.white,
+            ),
             onPressed: _logout,
           ),
         ],
@@ -237,24 +241,29 @@ Future<void> _logout() async {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Welcome Text
                   Text(
                     'Welcome ${_nameController.text.isNotEmpty ? _nameController.text : 'User'}',
                     style: const TextStyle(
                         fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
-
-                  // Profile Photo
                   Center(
                     child: GestureDetector(
                       onTap: _pickImage,
                       child: CircleAvatar(
                         radius: 60,
                         backgroundImage: _profilePhotoUrl != null
-                            ? NetworkImage(_profilePhotoUrl!)
+                            ? _profilePhotoUrl!.contains(
+                                    'data:image')
+                                ? MemoryImage(
+                                    base64Decode(_profilePhotoUrl!.split(
+                                        ',')[1]), 
+                                  )
+                                : NetworkImage(
+                                    _profilePhotoUrl!) 
                             : const AssetImage(
-                                'assets/Icons/default_avatar.png'),
+                                    'assets/Icons/default_avatar.png')
+                                as ImageProvider,
                       ),
                     ),
                   ),
@@ -296,94 +305,90 @@ Future<void> _logout() async {
                       border: const OutlineInputBorder(),
                     ),
                   ),
-    ElevatedButton(
-      onPressed: () async {
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Change Password'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Old Password',
-                  ),
-                  onChanged: (value) => _oldPassword = value,
-                ),
-                TextField(
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'New Password',
-                  ),
-                  onChanged: (value) => _newPassword = value,
-                ),
-                TextField(
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Retype New Password',
-                  ),
-                  onChanged: (value) => _confirmPassword = value,
-                ),
-              ],
-            ),
-            actions: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context); 
-                    },
-                    child: const Text('Cancel'),
-                  ),
                   ElevatedButton(
                     onPressed: () async {
-                      if (_newPassword != _confirmPassword) {
-                        Navigator.pop(context); 
-                        _showError('New password and confirm password do not match');
-                        return;
-                      }
-                      
-                      try {
-                        await _updatePassword();
-                        Navigator.pop(context); 
-                        _showMessage('Password changed successfully!');
-                      } catch (e) {
-                        Navigator.pop(context); 
-                        _showError(e.toString());
-                      }
+                      await showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Change Password'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Old Password',
+                                ),
+                                onChanged: (value) => _oldPassword = value,
+                              ),
+                              TextField(
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'New Password',
+                                ),
+                                onChanged: (value) => _newPassword = value,
+                              ),
+                              TextField(
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Retype New Password',
+                                ),
+                                onChanged: (value) => _confirmPassword = value,
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    if (_newPassword != _confirmPassword) {
+                                      Navigator.pop(context);
+                                      _showError(
+                                          'New password and confirm password do not match');
+                                      return;
+                                    }
+
+                                    try {
+                                      await _updatePassword();
+                                      Navigator.pop(context);
+                                      _showMessage(
+                                          'Password changed successfully!');
+                                    } catch (e) {
+                                      Navigator.pop(context);
+                                      _showError(e.toString());
+                                    }
+                                  },
+                                  child: const Text('Confirm'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
                     },
-                    child: const Text('Confirm'),
+                    child: const Text('Change Password'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      _updateEmail(_emailController.text);
+                    },
+                    child: const Text('Update Email'),
+                  ),
+                  ElevatedButton(
+                    onPressed: _updateUserData,
+                    child: const Text('Save Profile'),
                   ),
                 ],
-              ),
-            ],
-          ),
-        );
-      },
-      child: const Text('Change Password'),
-    ),
-    
-    ElevatedButton(
-      onPressed: () {
-        _updateEmail(_emailController.text); 
-      },
-      child: const Text('Update Email'),
-    ),
-ElevatedButton(
-      onPressed: _updateUserData, 
-      child: const Text('Save Profile'),
-    ),
-  ],
-)
-
-
-
-                
-              
-            ),
+              )),
     );
   }
 }

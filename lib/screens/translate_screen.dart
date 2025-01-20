@@ -22,7 +22,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   User? _currentUser;
   final List<String> _languages = [
-    "English", "French", "Spanish", "Arabic", "German", "Chinese", "Russian"
+    "English", "French", "Spanish", "Arabic", "German", "Chinese", "Russian","Japanese","Portuguese","Italian"
   ];
 
   @override
@@ -82,9 +82,16 @@ class _TranslateScreenState extends State<TranslateScreen> {
     return;
   }
 
+  if (_currentUser == null) {
+    _showError('User is not authenticated');
+    return;
+  }
+
   setState(() => _isLoading = true);
 
   try {
+    final token = await _currentUser!.getIdToken();
+
     var request = http.MultipartRequest(
       'POST',
       Uri.parse('http://10.0.2.2:3000/api/translate'),
@@ -93,9 +100,11 @@ class _TranslateScreenState extends State<TranslateScreen> {
     request.files.add(
       await http.MultipartFile.fromPath('image', _imageFile!.path),
     );
-
     request.fields['sourceLanguage'] = _sourceLanguage!;
     request.fields['targetLanguage'] = _selectedLanguage!;
+    request.fields['uid'] = _currentUser!.uid;
+
+    request.headers['Authorization'] = 'Bearer $token';
 
     var response = await request.send();
 
@@ -114,6 +123,8 @@ class _TranslateScreenState extends State<TranslateScreen> {
     setState(() => _isLoading = false);
   }
 }
+
+
 
 
   void _showTranslationResult(String translatedText) {

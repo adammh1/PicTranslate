@@ -46,7 +46,12 @@ app.*.map.json
 /android/app/release
 backend/pictranslate-d4da7-firebase-adminsdk-54fhy-cc89068b3a.json
 firebase1.json
-
+backend/pictranslate-firebase-adminsdk-.json
 backend.zip
 lib.zip
 lib/firebase_options.dart
+backend/processed_image.jpg
+backend.zip
+firebase1.json
+lib (2).zip
+.env
